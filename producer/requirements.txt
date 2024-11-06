@@ -4,3 +4,4 @@ python-dateutil
 youtube-transcript-api
 youtube-comment-downloader
 yt-dlp
+elasticsearch

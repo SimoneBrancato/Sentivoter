@@ -29,7 +29,7 @@ kafka_schema =  tp.StructType([
         tp.StructField('http_user_agent', tp.StringType(), True)
     ]), True),
     tp.StructField('id_video', tp.StringType(), True),
-    tp.StructField('published_at', tp.StringType(), True),
+    tp.StructField('timestamp', tp.StringType(), True),
     tp.StructField('comments', tp.ArrayType(tp.StructType([
             tp.StructField('cid', tp.StringType(), True),
             tp.StructField('published_at', tp.StringType(), True),
@@ -76,7 +76,7 @@ df_parsed = df.selectExpr("CAST(value AS STRING)") \
               .select("data.*")
 
 df_video = df_parsed.select(
-                            col("published_at").alias("timestamp"),
+                            "timestamp",
                             "title",
                             "url_video",
                             "id_video",
@@ -85,14 +85,15 @@ df_video = df_parsed.select(
                             "fullText",
                     )
 
-df_comments = df_parsed.select("id_video", explode("comments").alias("comment")) \
+df_comments = df_parsed.select("id_video", "timestamp", explode("comments").alias("comment")) \
                        .select(
                            col("id_video"),
+                           col("timestamp").alias("video_timestamp"),
                            col("comment.cid").alias("cid"),
                            col("comment.published_at").alias("published_at"),
                            col("comment.author").alias("author"),
                            col("comment.text").alias("text"),
-                           col("comment.votes").alias("votes")
+                           col("comment.votes").alias("likes")
                        )
 
 video_query = df_video.writeStream \
@@ -109,7 +110,6 @@ comments_query = df_comments.writeStream \
                             .option("checkpointLocation", "/tmp/sentivoter_comments_checkpoint/") \
                             .start()
 
-# Aspetta che entrambi i flussi di scrittura terminino
 video_query.awaitTermination()
 comments_query.awaitTermination()
                       

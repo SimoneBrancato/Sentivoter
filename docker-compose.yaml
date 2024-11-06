@@ -12,6 +12,8 @@ services:
     depends_on:
       logstash:
         condition: service_healthy
+      elasticsearch:
+        condition: service_started
     command: sh -c "sleep 90s ; python3 -u script.py"
 
   logstash:
@@ -115,22 +117,6 @@ services:
       - ES_JAVA_OPTS=-Xms2g -Xmx2g
     ports:
       - "9200:9200"
-
-  #init-elasticsearch:
-  #  image: alpine:3.12
-  #  container_name: init-elasticsearch
-  #  depends_on:
-  #    - elasticsearch
-  #  volumes:
-  #   - ./elasticsearch/sentivoter_videos_template.json:/config/sentivoter_videos_template.json
-  #    - ./elasticsearch/sentivoter_comments_template.json:/config/sentivoter_comments_template.json
-  #  entrypoint: [
-  #    "sh", "-c",
-  #    "apk add --no-cache curl; \
-  #    until curl -s http://elasticsearch:9200; do echo 'Waiting for Elasticsearch...'; sleep 5; done; \
-  #    curl -X PUT 'http://elasticsearch:9200/_index_template/sentivoter_videos' -H 'Content-Type: application/json' -d @/config/sentivoter_videos_template.json; \
-  #    curl -X PUT 'http://elasticsearch:9200/_index_template/sentivoter_comments' -H 'Content-Type: application/json'-d @/config/sentivoter_comments_template.json;"
-  #  ]
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.7.1
