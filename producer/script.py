@@ -13,6 +13,8 @@ import requests
 LOGSTASH_URL: str = "http://logstash:9700"
 YT_API_KEY: str = os.getenv('YT_API_KEY')
 CHANNEL_ID: str = os.getenv('CHANNEL_ID')
+STATE: str = os.getenv('STATE')
+CHANNEL_BIAS: str = os.getenv('BIAS')
 KEYWORDS: str = "Harris|Trump|Elections"
 
 es = Elasticsearch(['http://elasticsearch:9200'])
@@ -26,13 +28,20 @@ def initialize_elasticsearch_indexes():
     comments_mapping = {
         "mappings": {
             "properties": {
-                "video_id": { "type": "keyword" },
+                "id_video": { "type": "keyword" },
                 "cid": { "type": "keyword" },
+                "channel": { "type": "keyword" },
+                "channel_bias": { "type": "keyword" },
+                "state": { "type": "keyword" },
                 "video_timestamp": { "type": "date" },
                 "published_at": { "type": "date" },
                 "author": { "type": "text" },
                 "text": { "type": "text" },
-                "votes": { "type": "integer" }
+                "likes": { "type": "integer" },
+                "sentiment_label": { "type": "keyword" },
+                "negative": { "type": "float" },
+                "neutral": { "type": "float" },
+                "positive": { "type": "float" }
             }
         }
     }
@@ -49,11 +58,18 @@ def initialize_elasticsearch_indexes():
             "properties": {
                 "timestamp": { "type": "date" },
                 "title": { "type": "text" },
+                "channel": { "type": "keyword" },
+                "channel_bias": { "type": "keyword" },
+                "state": { "type": "keyword" },
                 "url_video": { "type": "text" },
                 "id_video": { "type": "keyword" },
                 "views": { "type": "integer" },
                 "likes": { "type": "integer" },
-                "fullText": { "type": "text" }
+                "fullText": { "type": "text" },
+                "sentiment_label": { "type": "keyword" },
+                "negative": { "type": "float" },
+                "neutral": { "type": "float" },
+                "positive": { "type": "float" }
             }
         }
     }
@@ -87,34 +103,31 @@ def get_videos(channel_id, keywords, start_date):
     videos = []
     next_page_token = None
 
-    end_date = datetime.now() - relativedelta(weeks=1)
-    print(f"Retrieving video published before {end_date}")
-    last_datetime = None
+    current_date = start_date
+    now = datetime.now()
+    print(f"Retrieving videos from {start_date} to {now}")
 
     try:
-        while True:
-            sliding_date = end_date - relativedelta(weeks=1)
+        while current_date < now:
+            sliding_date = current_date + relativedelta(days=10)
 
-            if end_date > start_date:
-                break
+            if sliding_date > now:
+                sliding_date = now
 
-            if sliding_date < start_date:
-                sliding_date = start_date
-
+            current_date_str = current_date.strftime('%Y-%m-%dT%H:%M:%SZ')
             sliding_date_str = sliding_date.strftime('%Y-%m-%dT%H:%M:%SZ')
-            end_date_str = end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
 
             while True:
                 request = youtube.search().list(
                     part="snippet",
                     channelId=channel_id,
-                    q=keywords,  
+                    q=keywords,
                     type="video",
                     order="date",
                     maxResults=50,
-                    publishedAfter=sliding_date_str,
-                    publishedBefore=end_date_str,   
-                    pageToken=next_page_token  
+                    publishedAfter=current_date_str,
+                    publishedBefore=sliding_date_str,
+                    pageToken=next_page_token
                 )
 
                 response = request.execute()
@@ -129,19 +142,17 @@ def get_videos(channel_id, keywords, start_date):
                 if not next_page_token:
                     next_page_token = None
                     break
-                
-            end_date = sliding_date
-            last_datetime = end_date
-        
+
+            current_date = sliding_date
+
     except Exception as e:
-        print(f"Error during link extraction: {e}")
+        print(f"Error during video extraction: {e}")
 
     finally:
-        return last_datetime, videos
-        
+        return videos
+    
 def get_video_comments(video_url):
     try:
-       
         comments_data = downloader.get_comments_from_url(video_url, sort_by=SORT_BY_POPULAR)
         comments = []
 
@@ -161,7 +172,6 @@ def get_video_comments(video_url):
         print("Error while extracting comments. Returning")
         return comments
     
-
 def scrape_videos_by_list(videos: list):
     for video_url in videos:
 
@@ -182,6 +192,9 @@ def scrape_videos_by_list(videos: list):
         print("---------------------------------------------------------")
         
         result_json = {
+            'channel': CHANNEL_ID,
+            'channel_bias': CHANNEL_BIAS,
+            'state': STATE, 
             'url_video': video_url,
             'id_video': info_dict['id'],
             'title': info_dict['title'],
@@ -204,19 +217,23 @@ def main():
     if latest_video_timestamp is None and latest_comment_timestamp is None:
         print("No data found in Elasticsearch. Starting scraping for the first time.")
         start_date = datetime(2024, 9, 1)
-        end_date = datetime.now()
         
-        end_date, retrieved_videos = get_videos(CHANNEL_ID, KEYWORDS, start_date)
-        print(f"Retrieved {len(retrieved_videos)} videos.\nEnd date: {end_date}")
+        print(f"Starting from: {start_date}")
+        retrieved_videos = get_videos(CHANNEL_ID, KEYWORDS, start_date)
+        print(f"Retrieved {len(retrieved_videos)} videos.")
+
         scrape_videos_by_list(retrieved_videos)
 
     elif latest_comment_timestamp and latest_video_timestamp:
-        print("Data found.\nLatest video timestamp:", latest_video_timestamp)
+        print("Latest video timestamp:", latest_video_timestamp)
         print("Latest comment timestamp:", latest_comment_timestamp)
 
         start_date = datetime.fromisoformat(latest_video_timestamp)
-        end_date, retrieved_videos = get_videos(CHANNEL_ID, KEYWORDS, start_date)
+
+        print(f"Starting from: {start_date}")
+        retrieved_videos = get_videos(CHANNEL_ID, KEYWORDS, start_date)
         print(f"Retrieved {len(retrieved_videos)} videos.")
+
         scrape_videos_by_list(retrieved_videos)
 
     else:

@@ -6,11 +6,10 @@ USATODAY = UCP6HGa63sBC7-KHtkme-p-g
 TheYoungTurks = UC1yBKRuGpC1tSM73A0ZjYjQ
 GoodMorningAmerica = UCH1oRy1dINbMVp3UFWrKP0w
 WashingtonPost = UCHd62-u_v4DvJ8TCFtpi4GA
-NewYorkTimes = UCqnbDFdCpuN8CMEg0VuEBqA
+NewYorkTimes = UCqnbDFdCpuN8CMEg0VuEBqA 
+TheWallStreetJournal = UCK7tptUDHh-RYDsdxO1-5QQ
 
-Api-Key Limits: 10000/day 
-Endpoint youtube.search().list: 100 units per request. 
-Ognuna ritorna 50 video, per un massimo di 500 per ciclo cambiando pagina (costo tot 1000)
-Per continuare ad ottenere link, devo aggiornare il timestamp
-Ogni giorno posso ottenere 5000 link
+
+
+
 
