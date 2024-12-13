@@ -81,14 +81,17 @@ def initialize_elasticsearch_indexes():
         print(f"Index '{videos_index_name}' already exists")
 
 # Retrieves the last timestamp in the specified index
-def get_latest_timestamp(index, timestamp_field):
+def get_latest_timestamp(index, timestamp_field, channel_id):
     try:
         response = es.search(
             index=index,
             body={
                 "size": 1,
                 "sort": [{timestamp_field: "desc"}],
-                "_source": [timestamp_field]
+                "_source": [timestamp_field],
+                "query": {
+                    "term": {"channel": channel_id}
+                }
             }
         )
         if response['hits']['total']['value'] > 0:
@@ -187,8 +190,9 @@ def scrape_videos_by_list(videos: list):
             continue
 
         print("---------------------------------------------------------")
-        print(f"Video: {video_url}")
+        print(f"Title: {video_url}")
         print(f"Comments: {len(comments)}")
+        print(f"Timestamp: {str(datetime.fromtimestamp(info_dict['timestamp']).isoformat())}")
         print("---------------------------------------------------------")
         
         result_json = {
@@ -211,8 +215,8 @@ def main():
     
     initialize_elasticsearch_indexes()
 
-    latest_video_timestamp = get_latest_timestamp(index='sentivoter_videos', timestamp_field='timestamp')
-    latest_comment_timestamp = get_latest_timestamp(index='sentivoter_comments', timestamp_field='video_timestamp')
+    latest_video_timestamp = get_latest_timestamp(index='sentivoter_videos', timestamp_field='timestamp', channel_id=CHANNEL_ID)
+    latest_comment_timestamp = get_latest_timestamp(index='sentivoter_comments', timestamp_field='video_timestamp', channel_id=CHANNEL_ID)
 
     if latest_video_timestamp is None and latest_comment_timestamp is None:
         print("No data found in Elasticsearch. Starting scraping for the first time.")
