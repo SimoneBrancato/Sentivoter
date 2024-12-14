@@ -259,7 +259,7 @@ services:
       - ./spark/:/spark
       - spark_volume:/opt/spark/jars
     command: > 
-      /opt/spark/bin/spark-submit --conf spark.driver.extraJavaOptions="-Divy.cache.dir=/tmp -Divy.home=/tmp" --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.elasticsearch:elasticsearch-spark-30_2.12:8.13.4  /spark/script.py
+      /opt/spark/bin/spark-submit --conf spark.executor.memory=4g --conf spark.driver.memory=4g --conf spark.driver.extraJavaOptions="-Divy.cache.dir=/tmp -Divy.home=/tmp" --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.elasticsearch:elasticsearch-spark-30_2.12:8.13.4  /spark/script.py
     depends_on:
       init-kafka:
         condition: service_completed_successfully
@@ -277,7 +277,7 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - http.port=9200
-      - ES_JAVA_OPTS=-Xms4g -Xmx4g
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
     ports:
       - "9200:9200"
 

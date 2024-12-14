@@ -41,7 +41,8 @@ def initialize_elasticsearch_indexes():
                 "sentiment_label": { "type": "keyword" },
                 "negative": { "type": "float" },
                 "neutral": { "type": "float" },
-                "positive": { "type": "float" }
+                "positive": { "type": "float" },
+                "emotion_label": { "type": "keyword" }
             }
         }
     }
