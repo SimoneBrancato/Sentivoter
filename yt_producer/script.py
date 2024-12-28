@@ -24,8 +24,8 @@ yt_downloader = yt_dlp.YoutubeDL({'quiet': True})
 downloader = YoutubeCommentDownloader()
 
 def initialize_elasticsearch_indexes():
-    comments_index_name = 'sentivoter_comments'
-    comments_mapping = {
+    yt_comments_index_name = 'yt_sentivoter_comments'
+    yt_comments_mapping = {
         "mappings": {
             "properties": {
                 "id_video": { "type": "keyword" },
@@ -47,14 +47,14 @@ def initialize_elasticsearch_indexes():
         }
     }
 
-    if not es.indices.exists(index=comments_index_name):
-        es.indices.create(index=comments_index_name, body=comments_mapping)
-        print(f"Successfully created index '{comments_index_name}'")
+    if not es.indices.exists(index=yt_comments_index_name):
+        es.indices.create(index=yt_comments_index_name, body=yt_comments_mapping, ignore=400)
+        print(f"Successfully created index '{yt_comments_index_name}'")
     else:
-        print(f"Index '{comments_index_name}' already exists")
+        print(f"Index '{yt_comments_index_name}' already exists")
 
-    videos_index_name = 'sentivoter_videos'
-    videos_mapping = {
+    yt_videos_index_name = 'yt_sentivoter_videos'
+    yt_videos_mapping = {
         "mappings": {
             "properties": {
                 "timestamp": { "type": "date" },
@@ -75,11 +75,11 @@ def initialize_elasticsearch_indexes():
         }
     }
     
-    if not es.indices.exists(index=videos_index_name):
-        es.indices.create(index=videos_index_name, body=videos_mapping)
-        print(f"Successfully created index '{videos_index_name}'")
+    if not es.indices.exists(index=yt_videos_index_name):
+        es.indices.create(index=yt_videos_index_name, body=yt_videos_mapping, ignore=400)
+        print(f"Successfully created index '{yt_videos_index_name}'")
     else:
-        print(f"Index '{videos_index_name}' already exists")
+        print(f"Index '{yt_videos_index_name}' already exists")
 
 # Retrieves the last timestamp in the specified index
 def get_latest_timestamp(index, timestamp_field, channel_id):
@@ -177,6 +177,7 @@ def get_video_comments(video_url):
         return comments
     
 def scrape_videos_by_list(videos: list):
+    comments_count = 0
     for video_url in videos:
 
         time.sleep(15)
@@ -189,11 +190,14 @@ def scrape_videos_by_list(videos: list):
         except Exception:
             print("Extracting failed for current video. Continue.")
             continue
-
+        
+        comments_count += len(comments)
+        
         print("---------------------------------------------------------")
-        print(f"Title: {video_url}")
+        print(f"Url: {video_url}")
         print(f"Comments: {len(comments)}")
         print(f"Timestamp: {str(datetime.fromtimestamp(info_dict['timestamp']).isoformat())}")
+        print(f"Total Comments Count: {comments_count}")
         print("---------------------------------------------------------")
         
         result_json = {
@@ -207,6 +211,7 @@ def scrape_videos_by_list(videos: list):
             'likes': info_dict['like_count'],
             'views': info_dict['view_count'],
             'fullText': fullText,
+            'social': 'youtube',
             'comments': comments
         }
 
@@ -216,15 +221,16 @@ def main():
     
     initialize_elasticsearch_indexes()
 
-    latest_video_timestamp = get_latest_timestamp(index='sentivoter_videos', timestamp_field='timestamp', channel_id=CHANNEL_ID)
-    latest_comment_timestamp = get_latest_timestamp(index='sentivoter_comments', timestamp_field='video_timestamp', channel_id=CHANNEL_ID)
+    latest_video_timestamp = get_latest_timestamp(index='yt_sentivoter_videos', timestamp_field='timestamp', channel_id=CHANNEL_ID)
+    latest_comment_timestamp = get_latest_timestamp(index='yt_sentivoter_comments', timestamp_field='video_timestamp', channel_id=CHANNEL_ID)
 
     if latest_video_timestamp is None and latest_comment_timestamp is None:
         print("No data found in Elasticsearch. Starting scraping for the first time.")
         start_date = datetime(2024, 9, 1)
         
         print(f"Starting from: {start_date}")
-        retrieved_videos = get_videos(CHANNEL_ID, KEYWORDS, start_date)
+        # retrieved_videos = get_videos(CHANNEL_ID, KEYWORDS, start_date)
+        retrieved_videos = ["https://www.youtube.com/watch?v=TeHMbNgnYaw&ab_channel=ABCNews","https://www.youtube.com/watch?v=ctDqkxkTSsA&ab_channel=ABCNews","https://www.youtube.com/watch?v=G47UFXiX8KI&ab_channel=ABCNews", "https://www.youtube.com/watch?v=JkdGZPF2d0c&ab_channel=ABCNews", "https://www.youtube.com/watch?v=SGM0ppX9iW8&ab_channel=ABCNews", "https://www.youtube.com/watch?v=HWGiSf5AhKg&ab_channel=ABCNews", "https://www.youtube.com/watch?v=wa_0_OAQgAs&ab_channel=ABCNews", "https://www.youtube.com/watch?v=yHlYd6dbEMY&ab_channel=ABCNews"]
         print(f"Retrieved {len(retrieved_videos)} videos.")
 
         scrape_videos_by_list(retrieved_videos)
@@ -236,7 +242,8 @@ def main():
         start_date = datetime.fromisoformat(latest_video_timestamp)
 
         print(f"Starting from: {start_date}")
-        retrieved_videos = get_videos(CHANNEL_ID, KEYWORDS, start_date)
+        # retrieved_videos = get_videos(CHANNEL_ID, KEYWORDS, start_date)
+        retrieved_videos = ["https://www.youtube.com/watch?v=TeHMbNgnYaw&ab_channel=ABCNews","https://www.youtube.com/watch?v=ctDqkxkTSsA&ab_channel=ABCNews","https://www.youtube.com/watch?v=G47UFXiX8KI&ab_channel=ABCNews", "https://www.youtube.com/watch?v=JkdGZPF2d0c&ab_channel=ABCNews", "https://www.youtube.com/watch?v=SGM0ppX9iW8&ab_channel=ABCNews", "https://www.youtube.com/watch?v=HWGiSf5AhKg&ab_channel=ABCNews", "https://www.youtube.com/watch?v=wa_0_OAQgAs&ab_channel=ABCNews", "https://www.youtube.com/watch?v=yHlYd6dbEMY&ab_channel=ABCNews"]
         print(f"Retrieved {len(retrieved_videos)} videos.")
 
         scrape_videos_by_list(retrieved_videos)

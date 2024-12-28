@@ -2,7 +2,7 @@ services:
 
   abcnews:
     build:
-      context: producer/
+      context: yt_producer/
       dockerfile: ./Dockerfile
     image: abcnews
     container_name: abcnews
@@ -20,7 +20,7 @@ services:
 
   foxnews:
     build:
-      context: producer/
+      context: yt_producer/
       dockerfile: ./Dockerfile
     image: foxnews
     container_name: foxnews
@@ -34,11 +34,11 @@ services:
         condition: service_healthy
       elasticsearch:
         condition: service_started
-    command: sh -c "sleep 90s ; python3 -u script.py"
+    #command: sh -c "sleep 90s ; python3 -u script.py"
 
   nbcnews:
     build:
-      context: producer/
+      context: yt_producer/
       dockerfile: ./Dockerfile
     image: nbcnews
     container_name: nbcnews
@@ -56,7 +56,7 @@ services:
 
   cbsnews:
     build:
-      context: producer/
+      context: yt_producer/
       dockerfile: ./Dockerfile
     image: cbsnews
     container_name: cbsnews
@@ -74,7 +74,7 @@ services:
 
   usatoday:
     build:
-      context: producer/
+      context: yt_producer/
       dockerfile: ./Dockerfile
     image: usatoday
     container_name: usatoday
@@ -92,7 +92,7 @@ services:
 
   theyoungturks:
     build:
-      context: producer/
+      context: yt_producer/
       dockerfile: ./Dockerfile
     image: theyoungturks
     container_name: theyoungturks
@@ -110,7 +110,7 @@ services:
 
   goodmorningamerica:
     build:
-      context: producer/
+      context: yt_producer/
       dockerfile: ./Dockerfile
     image: goodmorningamerica
     container_name: goodmorningamerica
@@ -128,7 +128,7 @@ services:
 
   washington_post:
     build:
-      context: producer/
+      context: yt_producer/
       dockerfile: ./Dockerfile
     image: washington_post
     container_name: washington_post
@@ -146,7 +146,7 @@ services:
   
   new_york_times:
     build:
-      context: producer/
+      context: yt_producer/
       dockerfile: ./Dockerfile
     image: new_york_times
     container_name: new_york_times
@@ -164,7 +164,7 @@ services:
 
   the_wall_street_journal:
     build:
-      context: producer/
+      context: yt_producer/
       dockerfile: ./Dockerfile
     image: the_wall_street_journal
     container_name: the_wall_street_journal
@@ -233,7 +233,9 @@ services:
     command: |
       "
       echo 'Creating Kafka topics.'
-      kafka-topics.sh --create --topic sentivoter --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --if-not-exists
+      kafka-topics.sh --create --topic yt_sentivoter --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --if-not-exists
+      kafka-topics.sh --create --topic fb_sentivoter_posts --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --if-not-exists
+      kafka-topics.sh --create --topic fb_sentivoter_comments --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --if-not-exists
       
       echo 'Successfully updated topic list:'
       kafka-topics.sh --list --bootstrap-server kafka:9092
@@ -250,22 +252,76 @@ services:
       - KAFKA_CLUSTERS_0_NAME=local
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=PLAINTEXT://kafka:9092
 
-  spark:
+  fb_spark:
     build:
-      context: spark/
+      context: fb_spark/
       dockerfile: ./Dockerfile
-    container_name: spark
+    container_name: fb_spark
     volumes:
-      - ./spark/:/spark
-      - spark_volume:/opt/spark/jars
+      - ./fb_spark/:/spark
+      - spark_volume_1:/opt/spark/jars
     command: > 
-      /opt/spark/bin/spark-submit --conf spark.executor.memory=4g --conf spark.driver.memory=4g --conf spark.driver.extraJavaOptions="-Divy.cache.dir=/tmp -Divy.home=/tmp" --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.elasticsearch:elasticsearch-spark-30_2.12:8.13.4  /spark/script.py
+      /opt/spark/bin/spark-submit 
+        --driver-memory 2g 
+        --executor-memory 2g
+        --conf spark.driver.extraJavaOptions="-Divy.cache.dir=/tmp -Divy.home=/tmp -XX:+UseG1GC"
+        --conf spark.executor.extraJavaOptions="-XX:+UseG1GC"
+        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.elasticsearch:elasticsearch-spark-30_2.12:8.13.4  
+        /spark/script.py
     depends_on:
+      fb_producer:
+        condition: service_completed_successfully
       init-kafka:
         condition: service_completed_successfully
       elasticsearch:
         condition: service_started
-      abcnews:
+
+  yt_spark_1:
+    build:
+      context: yt_spark_1/
+      dockerfile: ./Dockerfile
+    container_name: yt_spark_1
+    volumes:
+      - ./yt_spark_1/:/spark
+      - spark_volume_2:/opt/spark/jars
+    command: > 
+      /opt/spark/bin/spark-submit 
+        --driver-memory 2g 
+        --executor-memory 2g
+        --conf spark.driver.extraJavaOptions="-Divy.cache.dir=/tmp -Divy.home=/tmp -XX:+UseG1GC"
+        --conf spark.executor.extraJavaOptions="-XX:+UseG1GC"
+        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.elasticsearch:elasticsearch-spark-30_2.12:8.13.4  
+        /spark/script.py
+    depends_on:
+      fb_spark:
+        condition: service_completed_successfully
+      init-kafka:
+        condition: service_completed_successfully
+      elasticsearch:
+        condition: service_started
+
+  yt_spark_2:
+    build:
+      context: yt_spark_2/
+      dockerfile: ./Dockerfile
+    container_name: yt_spark_2
+    volumes:
+      - ./yt_spark_2/:/spark
+      - spark_volume_3:/opt/spark/jars
+    command: > 
+      /opt/spark/bin/spark-submit 
+        --driver-memory 2g 
+        --executor-memory 2g
+        --conf spark.driver.extraJavaOptions="-Divy.cache.dir=/tmp -Divy.home=/tmp -XX:+UseG1GC"
+        --conf spark.executor.extraJavaOptions="-XX:+UseG1GC"
+        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.elasticsearch:elasticsearch-spark-30_2.12:8.13.4  
+        /spark/script.py
+    depends_on:
+      fb_spark:
+        condition: service_completed_successfully
+      init-kafka:
+        condition: service_completed_successfully
+      elasticsearch:
         condition: service_started
 
   elasticsearch:                                        
@@ -279,7 +335,11 @@ services:
       - http.port=9200
       - ES_JAVA_OPTS=-Xms2g -Xmx2g
     ports:
-      - "9200:9200"
+      - 9200:9200
+    deploy:
+      resources:
+        limits:
+          memory: 4GB
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.7.1
@@ -293,6 +353,48 @@ services:
     depends_on:
       - elasticsearch
 
+  init-kibana:
+    image: curlimages/curl:8.8.0
+    container_name: init-kibana
+    volumes:
+      - ./kibana/config/data/export.ndjson:/export.ndjson
+      - ./kibana/config/data/load-kibana.sh:/usr/share/kibana/load-kibana.sh
+    command: ["/bin/sh", "/usr/share/kibana/load-kibana.sh"]
+    depends_on:
+      - kibana
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql_database
+    environment:
+      MYSQL_DATABASE: elections
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: user                    
+      MYSQL_PASSWORD: user
+    volumes:
+      - ./mysql/dump.sql:/dump.sql
+      - ./mysql/custom-entrypoint.sh:/custom-entrypoint.sh
+      - db_data:/var/lib/mysql
+    ports:
+      - 3308:3306
+    entrypoint: /custom-entrypoint.sh
+
+  fb_producer:
+    build:
+      context: fb_producer/
+      dockerfile: ./Dockerfile
+    image: fb_producer
+    container_name: fb_producer
+    depends_on:
+      logstash:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_started
+    command: sh -c "sleep 20s ; python3 -u script.py"
+
 volumes:
-  spark_volume:
+  spark_volume_1:
+  spark_volume_2:
+  spark_volume_3:
   es_data:
+  db_data:

@@ -1,6 +1,5 @@
 FROM python:3.9-slim
 
-# ENV PATH /usr/src/app/bin:$PATH
 WORKDIR /usr/src/app
 RUN apt update && apt install -y ffmpeg
 
