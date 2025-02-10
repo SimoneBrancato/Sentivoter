@@ -1,185 +1,22 @@
 services:
 
-  abcnews:
+  producer:
     build:
-      context: yt_producer/
+      context: producer/
       dockerfile: ./Dockerfile
-    image: abcnews
-    container_name: abcnews
-    environment:
-      - CHANNEL_ID=UCBi2mrWuNuyYy4gbM6fU18Q
-      - STATE=NY
-      - BIAS=LEAN_DEMOCRAT
-      - YT_API_KEY=${ABC_API_KEY}
+    image: producer
+    container_name: producer
+    volumes:
+      - ./yt_data/flattened_comments_data:/comments_data
+      - ./yt_data/flattened_videos_data:/videos_data
     depends_on:
       logstash:
         condition: service_healthy
       elasticsearch:
         condition: service_started
-    command: sh -c "sleep 90s ; python3 -u script.py"
+    command: sh -c "sleep 90s ; python3 -u script.py"    
 
-  foxnews:
-    build:
-      context: yt_producer/
-      dockerfile: ./Dockerfile
-    image: foxnews
-    container_name: foxnews
-    environment:
-      - CHANNEL_ID=UCXIJgqnII2ZOINSWNOGFThA
-      - STATE=NY
-      - BIAS=REPUBLICAN
-      - YT_API_KEY=${FOX_API_KEY}
-    depends_on:
-      logstash:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_started
-    #command: sh -c "sleep 90s ; python3 -u script.py"
-
-  nbcnews:
-    build:
-      context: yt_producer/
-      dockerfile: ./Dockerfile
-    image: nbcnews
-    container_name: nbcnews
-    environment:
-      - CHANNEL_ID=UCeY0bbntWzzVIaj2z3QigXg
-      - STATE=NY
-      - BIAS=LEAN_DEMOCRAT
-      - YT_API_KEY=${NBC_API_KEY}
-    depends_on:
-      logstash:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_started
-    #command: sh -c "sleep 90s ; python3 -u script.py"
-
-  cbsnews:
-    build:
-      context: yt_producer/
-      dockerfile: ./Dockerfile
-    image: cbsnews
-    container_name: cbsnews
-    environment:
-      - CHANNEL_ID=UC8p1vwvWtl6T73JiExfWs1g
-      - STATE=NY
-      - BIAS=LEAN_DEMOCRAT
-      - YT_API_KEY=${CBS_API_KEY}
-    depends_on:
-      logstash:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_started
-    #command: sh -c "sleep 90s ; python3 -u script.py"
-
-  usatoday:
-    build:
-      context: yt_producer/
-      dockerfile: ./Dockerfile
-    image: usatoday
-    container_name: usatoday
-    environment:
-      - CHANNEL_ID=UCP6HGa63sBC7-KHtkme-p-g
-      - STATE=DC
-      - BIAS=LEAN_DEMOCRAT
-      - YT_API_KEY=${UST_API_KEY}
-    depends_on:
-      logstash:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_started
-    #command: sh -c "sleep 90s ; python3 -u script.py"
-
-  theyoungturks:
-    build:
-      context: yt_producer/
-      dockerfile: ./Dockerfile
-    image: theyoungturks
-    container_name: theyoungturks
-    environment:
-      - CHANNEL_ID=UC1yBKRuGpC1tSM73A0ZjYjQ
-      - STATE=CA
-      - BIAS=DEMOCRAT
-      - YT_API_KEY=${TYT_API_KEY}
-    depends_on:
-      logstash:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_started
-    #command: sh -c "sleep 90s ; python3 -u script.py"
-
-  goodmorningamerica:
-    build:
-      context: yt_producer/
-      dockerfile: ./Dockerfile
-    image: goodmorningamerica
-    container_name: goodmorningamerica
-    environment:
-      - CHANNEL_ID=UCH1oRy1dINbMVp3UFWrKP0w
-      - STATE=NY
-      - BIAS=CENTER
-      - YT_API_KEY=${GMA_API_KEY}
-    depends_on:
-      logstash:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_started
-    #command: sh -c "sleep 90s ; python3 -u script.py"
-
-  washington_post:
-    build:
-      context: yt_producer/
-      dockerfile: ./Dockerfile
-    image: washington_post
-    container_name: washington_post
-    environment:
-      - CHANNEL_ID=UCHd62-u_v4DvJ8TCFtpi4GA
-      - STATE=DC
-      - BIAS=LEAN_DEMOCRAT
-      - YT_API_KEY=${WPO_API_KEY}
-    depends_on:
-      logstash:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_started
-    #command: sh -c "sleep 90s ; python3 -u script.py"
   
-  new_york_times:
-    build:
-      context: yt_producer/
-      dockerfile: ./Dockerfile
-    image: new_york_times
-    container_name: new_york_times
-    environment:
-      - CHANNEL_ID=UCqnbDFdCpuN8CMEg0VuEBqA
-      - STATE=NY
-      - BIAS=DEMOCRAT
-      - YT_API_KEY=${NYT_API_KEY}
-    depends_on:
-      logstash:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_started
-    #command: sh -c "sleep 90s ; python3 -u script.py"
-
-  the_wall_street_journal:
-    build:
-      context: yt_producer/
-      dockerfile: ./Dockerfile
-    image: the_wall_street_journal
-    container_name: the_wall_street_journal
-    environment:
-      - CHANNEL_ID=UCK7tptUDHh-RYDsdxO1-5QQ
-      - STATE=NY
-      - BIAS=REPUBLICAN
-      - YT_API_KEY=${WSJ_API_KEY}
-    depends_on:
-      logstash:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_started
-    #command: sh -c "sleep 90s ; python3 -u script.py"
-
   logstash:
     build: 
       context: logstash/
@@ -193,7 +30,7 @@ services:
       - 9700:9700
     depends_on:
       - kafka
-      - kafka-ui
+      #- kafka-ui
       - elasticsearch
     healthcheck:
       test: ["CMD-SHELL", "curl --silent --fail http://localhost:9700 || exit 1"]
@@ -227,13 +64,14 @@ services:
     container_name: init-kafka
     depends_on:
       - kafka
-      - kafka-ui
+      #- kafka-ui
       - elasticsearch
     entrypoint: ['/bin/sh', '-c']
     command: |
       "
       echo 'Creating Kafka topics.'
-      kafka-topics.sh --create --topic yt_sentivoter --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --if-not-exists
+      kafka-topics.sh --create --topic yt_sentivoter_videos --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --if-not-exists
+      kafka-topics.sh --create --topic yt_sentivoter_comments --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --if-not-exists
       kafka-topics.sh --create --topic fb_sentivoter_posts --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --if-not-exists
       kafka-topics.sh --create --topic fb_sentivoter_comments --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --if-not-exists
       
@@ -292,6 +130,7 @@ services:
         --conf spark.executor.extraJavaOptions="-XX:+UseG1GC"
         --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.elasticsearch:elasticsearch-spark-30_2.12:8.13.4  
         /spark/script.py
+    restart: on-failure
     depends_on:
       fb_spark:
         condition: service_completed_successfully
@@ -316,8 +155,9 @@ services:
         --conf spark.executor.extraJavaOptions="-XX:+UseG1GC"
         --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.elasticsearch:elasticsearch-spark-30_2.12:8.13.4  
         /spark/script.py
+    restart: on-failure
     depends_on:
-      fb_spark:
+      yt_spark_1:
         condition: service_completed_successfully
       init-kafka:
         condition: service_completed_successfully
@@ -333,7 +173,7 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - http.port=9200
-      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
     ports:
       - 9200:9200
     deploy:
@@ -378,19 +218,6 @@ services:
     ports:
       - 3308:3306
     entrypoint: /custom-entrypoint.sh
-
-  fb_producer:
-    build:
-      context: fb_producer/
-      dockerfile: ./Dockerfile
-    image: fb_producer
-    container_name: fb_producer
-    depends_on:
-      logstash:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_started
-    command: sh -c "sleep 20s ; python3 -u script.py"
 
 volumes:
   spark_volume_1:

@@ -10,8 +10,14 @@ until mysqladmin ping -h "127.0.0.1" --silent; do
   sleep 5
 done
 
-# Load data into db
-echo "Initializing database..."
-mysql -u root -proot < /dump.sql
+# Check if there are any tables in the database
+TABLE_COUNT=$(mysql -u root -proot -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='Elections';" -s --skip-column-names)
+
+if [ "$TABLE_COUNT" -eq 0 ]; then
+  echo "No tables found. Initializing database..."
+  mysql -u root -proot < /dump.sql
+else
+  echo "Database already initialized. Skipping import."
+fi
 
 wait

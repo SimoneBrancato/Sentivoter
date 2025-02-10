@@ -1,7 +1,7 @@
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 import pyspark.sql.types as tp
-from pyspark.sql.functions import col, from_json, explode, udf
+from pyspark.sql.functions import col, from_json, udf
 import tweetnlp
 from transformers import logging
 import warnings
@@ -12,7 +12,7 @@ logging.set_verbosity_error()
 
 # Define parameters to connect to Kafka Broker
 kafkaServer = "kafka:9092"
-yt_topic = "yt_sentivoter"
+yt_topic = "yt_sentivoter_comments"
 
 # Load sentiment and emotion models from TweetNLP
 sentiment_model = tweetnlp.load_model('sentiment')
@@ -56,10 +56,9 @@ def get_sentiment(text):
 
         for sentiment, prob in aggregated_probabilities.items():
             average_probabilities[sentiment] = float(prob / num_chunks) 
-        
         global count
         print(count)
-        count+=1
+        count+=1        
         average_probabilities["sentiment_label"] = str(max(average_probabilities, key=average_probabilities.get))
 
     except Exception:
@@ -122,24 +121,20 @@ emotion_udf = udf(get_emotion, emotion_schema)
 
 # Define Kafka messages structure
 yt_kafka_schema =  tp.StructType([
-    tp.StructField('fullText', tp.StringType(), True),
     tp.StructField('url_video', tp.StringType(), True),
-    tp.StructField('host', tp.StringType(), True),
     tp.StructField('title', tp.StringType(), True),
     tp.StructField('views', tp.IntegerType(), True),
-    tp.StructField('likes', tp.IntegerType(), True),
+    tp.StructField('video_likes', tp.IntegerType(), True),
     tp.StructField('id_video', tp.StringType(), True),
     tp.StructField('channel', tp.StringType(), True),
     tp.StructField('channel_bias', tp.StringType(), True),
     tp.StructField('state', tp.StringType(), True),
-    tp.StructField('timestamp', tp.StringType(), True),
-    tp.StructField('comments', tp.ArrayType(tp.StructType([
-            tp.StructField('cid', tp.StringType(), True),
-            tp.StructField('published_at', tp.StringType(), True),
-            tp.StructField('author', tp.StringType(), True),
-            tp.StructField('text', tp.StringType(), True),
-            tp.StructField('votes', tp.IntegerType(), True)
-        ])), True)
+    tp.StructField('video_timestamp', tp.StringType(), True),
+    tp.StructField('comment_cid', tp.StringType(), True),
+    tp.StructField('comment_published_at', tp.StringType(), True),
+    tp.StructField('comment_author', tp.StringType(), True),
+    tp.StructField('comment_text', tp.StringType(), True),
+    tp.StructField('comment_votes', tp.IntegerType(), True),
 ])
 
 # Define Spark connection to ElasticSearch
@@ -154,7 +149,7 @@ sparkConf = SparkConf().set("es.nodes", "http://elasticsearch") \
 print("Starting Spark Session")
 spark = SparkSession.builder \
     .appName("Spark-YT") \
-    .master("local[8]") \
+    .master("local[3]") \
     .config(conf=sparkConf) \
     .getOrCreate()
 
@@ -177,37 +172,44 @@ df_youtube_parsed = df_youtube.selectExpr("CAST(value AS STRING)") \
               .select(from_json(col("value"), yt_kafka_schema).alias("data")) \
               .select("data.*")
 
-# Flatten comments dataframe
-df_youtube_comments = df_youtube_parsed.select("id_video", "timestamp", "channel", "channel_bias", "state", explode("comments").alias("comment")) \
-                       .select(
+# Select comments dataframe
+df_youtube_comments = df_youtube_parsed.select(
                            col("id_video"),
-                           col("timestamp").alias("video_timestamp"),
+                           col("video_timestamp").alias("timestamp"),
                            col("channel"),
                            col("channel_bias"),
                            col("state"),
-                           col("comment.cid").alias("cid"),
-                           col("comment.published_at").alias("published_at"),
-                           col("comment.author").alias("author"),
-                           col("comment.text").alias("text"),
-                           col("comment.votes").alias("likes")
+                           col("url_video"),
+                           col("title"),
+                           col("video_likes"),
+                           col("views"),
+                           col("comment_cid").alias("comment_id"),
+                           col("comment_published_at"),
+                           col("comment_author"),
+                           col("comment_text"),
+                           col("comment_votes")
                        )
 
 # Enrich comments dataframe with sentiment analysis and emotion analysis
-df_youtube_comments = df_youtube_comments.withColumn("sentiment", sentiment_udf(df_youtube_comments["text"]))
-df_youtube_comments = df_youtube_comments.withColumn("emotion", emotion_udf(df_youtube_comments["text"]))
+df_youtube_comments = df_youtube_comments.withColumn("sentiment", sentiment_udf(df_youtube_comments["comment_text"]))
+df_youtube_comments = df_youtube_comments.withColumn("emotion", emotion_udf(df_youtube_comments["comment_text"]))
 
 # Expand dataframe and select relevant columns 
 df_youtube_comments = df_youtube_comments.select(
                            col("id_video"),
-                           col("video_timestamp"),
+                           col("timestamp"),
                            col("channel"),
                            col("channel_bias"),
                            col("state"),
-                           col("cid"),
-                           col("published_at"),
-                           col("author"),
-                           col("text"),
-                           col("likes"),
+                           col("url_video"), 
+                           col("title"),
+                           col("video_likes"),
+                           col("views"),
+                           col("comment_id"),
+                           col("comment_published_at"),
+                           col("comment_author"),
+                           col("comment_text"),
+                           col("comment_votes"),
                            col("sentiment.sentiment_label").alias("sentiment_label"),
                            col("sentiment.negative").alias("negative"),
                            col("sentiment.neutral").alias("neutral"),
@@ -220,6 +222,8 @@ yt_comments_query = df_youtube_comments.writeStream \
                         .format("es") \
                         .option("failOnDataLoss", "false") \
                         .option("checkpointLocation", "/tmp/sentivoter_comments_checkpoint/") \
+                        .option("es.batch.write.retry.count", "10") \
+                        .option("es.batch.write.retry.wait", "100ms") \
                         .start("yt_sentivoter_comments")
 
 yt_comments_query.awaitTermination()

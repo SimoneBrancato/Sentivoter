@@ -12,7 +12,7 @@ logging.set_verbosity_error()
 
 # Define parameters to connect to Kafka Broker
 kafkaServer = "kafka:9092"
-yt_topic = "yt_sentivoter"
+yt_topic = "yt_sentivoter_videos"
 
 # Load sentiment and emotion models from TweetNLP
 sentiment_model = tweetnlp.load_model('sentiment')
@@ -56,7 +56,6 @@ def get_sentiment(text):
 
         for sentiment, prob in aggregated_probabilities.items():
             average_probabilities[sentiment] = float(prob / num_chunks) 
-        
         global count
         print(count)
         count+=1
@@ -66,40 +65,6 @@ def get_sentiment(text):
         average_probabilities = {"sentiment_label": "neutral", "negative": 0.0, "neutral": 1.0, "positive": 0.0}
     finally:
         return average_probabilities
-
-# Analyze text emotion by chunks and calculate total emotion analysis
-def get_emotion(text):
-    try:
-        if text is None:
-            return {"emotion_label": "null"}
-        
-        chunks = split_text(text)
-        aggregated_probabilities = {
-                                    'anger': 0.0,
-                                    'anticipation': 0.0,
-                                    'disgust': 0.0, 
-                                    'fear': 0.0, 
-                                    'joy': 0.0, 
-                                    'love': 0.0, 
-                                    'optimism': 0.0, 
-                                    'pessimism': 0.0, 
-                                    'sadness': 0.0, 
-                                    'surprise': 0.0, 
-                                    'trust': 0.0
-                                }
-        
-        for chunk in chunks:
-            result = emotion_model.emotion(chunk, return_probability=True)
-            probabilities = result['probability']
-            for emotion, probability in probabilities.items():
-                aggregated_probabilities[emotion] += probability
-        result = {"emotion_label": str(max(aggregated_probabilities, key=aggregated_probabilities.get))}
-
-    except Exception:
-        result = {"emotion_label": "null"}
-        
-    finally:
-        return result
 
 # Define sentiment_schema
 sentiment_schema = tp.StructType([
@@ -112,34 +77,19 @@ sentiment_schema = tp.StructType([
 # Define UDF by binding get_sentiment function and sentiment_schema
 sentiment_udf = udf(get_sentiment, sentiment_schema)
 
-# Define emotion_schema
-emotion_schema = tp.StructType([
-    tp.StructField("emotion_label", tp.StringType(), True)
-])
-
-# Define UDF by binding get_emotion function and emotion_schema
-emotion_udf = udf(get_emotion, emotion_schema)
-
 # Define Kafka messages structure
 yt_kafka_schema =  tp.StructType([
     tp.StructField('fullText', tp.StringType(), True),
     tp.StructField('url_video', tp.StringType(), True),
-    tp.StructField('host', tp.StringType(), True),
     tp.StructField('title', tp.StringType(), True),
     tp.StructField('views', tp.IntegerType(), True),
-    tp.StructField('likes', tp.IntegerType(), True),
+    tp.StructField('video_likes', tp.IntegerType(), True),
     tp.StructField('id_video', tp.StringType(), True),
     tp.StructField('channel', tp.StringType(), True),
     tp.StructField('channel_bias', tp.StringType(), True),
     tp.StructField('state', tp.StringType(), True),
-    tp.StructField('timestamp', tp.StringType(), True),
-    tp.StructField('comments', tp.ArrayType(tp.StructType([
-            tp.StructField('cid', tp.StringType(), True),
-            tp.StructField('published_at', tp.StringType(), True),
-            tp.StructField('author', tp.StringType(), True),
-            tp.StructField('text', tp.StringType(), True),
-            tp.StructField('votes', tp.IntegerType(), True)
-        ])), True)
+    tp.StructField('video_timestamp', tp.StringType(), True),
+    tp.StructField('comments', tp.IntegerType(), True)
 ])
 
 # Define Spark connection to ElasticSearch
@@ -153,8 +103,8 @@ sparkConf = SparkConf().set("es.nodes", "http://elasticsearch") \
 # Build Spark Session
 print("Starting Spark Session")
 spark = SparkSession.builder \
-    .appName("Spark-YT") \
-    .master("local[8]") \
+    .appName("Spark-FB") \
+    .master("local[3]") \
     .config(conf=sparkConf) \
     .getOrCreate()
 
@@ -179,7 +129,7 @@ df_youtube_parsed = df_youtube.selectExpr("CAST(value AS STRING)") \
 
 # Select relevant data for video dataframe from the parsed dataframe
 df_youtube_video = df_youtube_parsed.select(
-                            col("timestamp"),
+                            col("video_timestamp").alias("timestamp"),
                             col("channel"),
                             col("channel_bias"),
                             col("state"),
@@ -187,8 +137,9 @@ df_youtube_video = df_youtube_parsed.select(
                             col("url_video"),
                             col("id_video"),
                             col("views"),
-                            col("likes"),
+                            col("video_likes"),
                             col("fullText"),
+                            col("comments")
                     )
 
 # Enrich youtube video dataframe with sentiment analysis
@@ -204,8 +155,8 @@ df_youtube_video = df_youtube_video.select(
                             col("url_video"),
                             col("id_video"),
                             col("views"),
-                            col("likes"),
-                            col("fullText"),
+                            col("video_likes"),
+                            col("comments"),
                             col("sentiment.sentiment_label").alias("sentiment_label"),
                             col("sentiment.negative").alias("negative"),
                             col("sentiment.neutral").alias("neutral"),
@@ -217,6 +168,8 @@ yt_video_query = df_youtube_video.writeStream \
                     .format("es") \
                     .option("failOnDataLoss", "false") \
                     .option("checkpointLocation", "/tmp/sentivoter_videos_checkpoint/") \
+                    .option("es.batch.write.retry.count", "10") \
+                    .option("es.batch.write.retry.wait", "100ms") \
                     .start("yt_sentivoter_videos")
 
 yt_video_query.awaitTermination()

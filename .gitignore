@@ -1,2 +1,7 @@
 .env
 mysql/dump.sql
+yt_data/data 
+yt_data/flattened_comments_data
+yt_data/flattened_videos_data
+yt_data/yt_links_producer/yt_links 
+
