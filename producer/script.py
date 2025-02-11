@@ -16,6 +16,14 @@ def initialize_elasticsearch_indexes():
     yt_comments_index_name = 'yt_sentivoter_comments'
     yt_comments_mapping = {
         "mappings": {
+            "dynamic_templates": [
+                {
+                    "timestamps": {
+                        "match": "timestamp",  
+                        "mapping": { "type": "date" }
+                    }
+                }
+            ],
             "properties": {
                 "id_video": { "type": "keyword" }, 
                 "comment_id": { "type": "keyword" },
@@ -49,6 +57,14 @@ def initialize_elasticsearch_indexes():
     yt_videos_index_name = 'yt_sentivoter_videos'
     yt_videos_mapping = {
         "mappings": {
+            "dynamic_templates": [
+                {
+                    "timestamps": {
+                        "match": "timestamp",  
+                        "mapping": { "type": "date" }
+                    }
+                }
+            ],
             "properties": {
                 "timestamp": { "type": "date" },
                 "title": { "type": "text" },
@@ -77,6 +93,14 @@ def initialize_elasticsearch_indexes():
     fb_posts_index_name = 'fb_sentivoter_posts'
     fb_posts_mapping = {
         "mappings": {
+            "dynamic_templates": [
+                {
+                    "timestamps": {
+                        "match": "timestamp",  
+                        "mapping": { "type": "date" }
+                    }
+                }
+            ],
             "properties": {
                 "uuid": { "type": "keyword" },
                 "retrieving_time": { "type": "date" },
@@ -108,6 +132,14 @@ def initialize_elasticsearch_indexes():
     fb_comments_index_name = 'fb_sentivoter_comments'
     fb_comments_mapping = {
         "mappings": {
+            "dynamic_templates": [
+                {
+                    "timestamps": {
+                        "match": "timestamp",  
+                        "mapping": { "type": "date" }
+                    }
+                }
+            ],
             "properties": {
                 "uuid": { "type": "keyword" },
                 "post_id": { "type": "keyword" },
@@ -196,22 +228,22 @@ def fetch_data_from_mysql(table):
 
 if __name__ == "__main__":
         
-    initialize_elasticsearch_indexes()
+    #initialize_elasticsearch_indexes()
 
-    print("Sending facebook data...")
+    #print("Sending facebook data...")
     #fetch_data_from_mysql(table="Posts")
     #fetch_data_from_mysql(table="Comments_with_candidate_column")
 
-    print("Sending youtube videos...")
+    #print("Sending youtube videos...")
 
-    for filepath in glob.glob("/videos_data/*.json"):
-        time.sleep(30)
-        print(f"Opening {filepath}")
-        with open(filepath, "r") as file:
-            data = json.load(file)
-            print(f"Sending data from {filepath}")
-            for element in data:               
-                requests.post(LOGSTASH_URL, json=element)
+    #for filepath in glob.glob("/videos_data/*.json"):
+    #    time.sleep(30)
+    #    print(f"Opening {filepath}")
+    #    with open(filepath, "r") as file:
+    #        data = json.load(file)
+    #        print(f"Sending data from {filepath}")
+    #        for element in data:               
+    #            requests.post(LOGSTASH_URL, json=element)
 
     time.sleep(120)
 

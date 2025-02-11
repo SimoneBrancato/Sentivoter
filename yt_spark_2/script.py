@@ -30,8 +30,6 @@ def split_text(text, chunk_size=500):
         start += chunk_size
     return chunks
 
-count = 0
-
 # Analyze text sentiment by chunks and calculate total sentiment analysis
 def get_sentiment(text):
     try:
@@ -56,9 +54,7 @@ def get_sentiment(text):
 
         for sentiment, prob in aggregated_probabilities.items():
             average_probabilities[sentiment] = float(prob / num_chunks) 
-        global count
-        print(count)
-        count+=1        
+      
         average_probabilities["sentiment_label"] = str(max(average_probabilities, key=average_probabilities.get))
 
     except Exception:

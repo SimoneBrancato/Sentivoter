@@ -157,8 +157,6 @@ services:
         /spark/script.py
     restart: on-failure
     depends_on:
-      yt_spark_1:
-        condition: service_completed_successfully
       init-kafka:
         condition: service_completed_successfully
       elasticsearch:
