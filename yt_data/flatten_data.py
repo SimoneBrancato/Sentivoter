@@ -2,7 +2,6 @@ import json
 
 def flatten_comments(json_data):
     extracted_data = []
-
     for video in json_data:
         for comment in video['comments']:
             extracted_data.append({

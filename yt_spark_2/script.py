@@ -6,6 +6,23 @@ import tweetnlp
 from transformers import logging
 import warnings
 
+import tweetnlp
+import torch
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+print(f"Using device: {device}")
+print(f"CUDA available: {torch.cuda.is_available()}")
+print(f"CUDA device count: {torch.cuda.device_count()}")
+print(f"Current device: {torch.cuda.current_device()}")
+print(f"Device name: {torch.cuda.get_device_name(0)}")
+
+sentiment_model = tweetnlp.load_model('sentiment')
+print(f"Model device: {sentiment_model.model.device}")
+
+emotion_model = tweetnlp.load_model('emotion')
+print(f"Model device: {emotion_model.model.device}")
+
 # To reduce verbose output
 warnings.filterwarnings("ignore", category=FutureWarning)
 logging.set_verbosity_error()
@@ -13,10 +30,6 @@ logging.set_verbosity_error()
 # Define parameters to connect to Kafka Broker
 kafkaServer = "kafka:9092"
 yt_topic = "yt_sentivoter_comments"
-
-# Load sentiment and emotion models from TweetNLP
-sentiment_model = tweetnlp.load_model('sentiment')
-emotion_model = tweetnlp.load_model('emotion')
 
 # To split the text by chunk_size
 def split_text(text, chunk_size=500):
@@ -48,7 +61,7 @@ def get_sentiment(text):
             probabilities = result['probability']
             for sentiment, probability in probabilities.items():
                 aggregated_probabilities[sentiment] += probability
-        
+
         num_chunks = len(chunks) if len(chunks) > 0 else 1
         average_probabilities = {}
 
@@ -57,7 +70,8 @@ def get_sentiment(text):
       
         average_probabilities["sentiment_label"] = str(max(average_probabilities, key=average_probabilities.get))
 
-    except Exception:
+    except Exception as e:
+        print(f"Sentiment analysis error: {str(e)}")
         average_probabilities = {"sentiment_label": "neutral", "negative": 0.0, "neutral": 1.0, "positive": 0.0}
     finally:
         return average_probabilities
@@ -90,9 +104,9 @@ def get_emotion(text):
                 aggregated_probabilities[emotion] += probability
         result = {"emotion_label": str(max(aggregated_probabilities, key=aggregated_probabilities.get))}
 
-    except Exception:
+    except Exception as e:
+        print(f"Emotion analysis error: {str(e)}")
         result = {"emotion_label": "null"}
-        
     finally:
         return result
 
@@ -136,11 +150,11 @@ yt_kafka_schema =  tp.StructType([
 # Define Spark connection to ElasticSearch
 sparkConf = SparkConf().set("es.nodes", "http://elasticsearch") \
                         .set("es.port", "9200") \
-                        .set("spark.driver.memory","2G") \
-                        .set("spark.executor.memory", "2G") \
+                        .set("spark.driver.memory","3G") \
+                        .set("spark.executor.memory", "3G") \
                         .set("spark.driver.maxResultSize", "0") \
                         .set("spark.driver.extraJavaOptions", "-XX:+UseG1GC -XX:+PrintGCDetails")
-              
+    
 # Build Spark Session
 print("Starting Spark Session")
 spark = SparkSession.builder \
@@ -168,27 +182,43 @@ df_youtube_parsed = df_youtube.selectExpr("CAST(value AS STRING)") \
               .select(from_json(col("value"), yt_kafka_schema).alias("data")) \
               .select("data.*")
 
+# Define UDF by binding get_sentiment function and sentiment_schema
+sentiment_udf = udf(get_sentiment, sentiment_schema)
+
+# Define emotion_schema
+emotion_schema = tp.StructType([
+    tp.StructField("emotion_label", tp.StringType(), True)
+])
+
+# Define UDF by binding get_sentiment function and sentiment_schema
+sentiment_udf = udf(get_sentiment, sentiment_schema)
+
+# Define UDF by binding get_emotion function and emotion_schema
+emotion_udf = udf(get_emotion, emotion_schema)
+
 # Select comments dataframe
 df_youtube_comments = df_youtube_parsed.select(
-                           col("id_video"),
-                           col("video_timestamp").alias("timestamp"),
-                           col("channel"),
-                           col("channel_bias"),
-                           col("state"),
-                           col("url_video"),
-                           col("title"),
-                           col("video_likes"),
-                           col("views"),
-                           col("comment_cid").alias("comment_id"),
-                           col("comment_published_at"),
-                           col("comment_author"),
-                           col("comment_text"),
-                           col("comment_votes")
-                       )
+                        col("id_video"),
+                        col("video_timestamp").alias("timestamp"),
+                        col("channel"),
+                        col("channel_bias"),
+                        col("state"),
+                        col("url_video"),
+                        col("title"),
+                        col("video_likes"),
+                        col("views"),
+                        col("comment_cid").alias("comment_id"),
+                        col("comment_published_at"),
+                        col("comment_author"),
+                        col("comment_text"),
+                        col("comment_votes")
+                    )
 
 # Enrich comments dataframe with sentiment analysis and emotion analysis
-df_youtube_comments = df_youtube_comments.withColumn("sentiment", sentiment_udf(df_youtube_comments["comment_text"]))
-df_youtube_comments = df_youtube_comments.withColumn("emotion", emotion_udf(df_youtube_comments["comment_text"]))
+df_youtube_comments = df_youtube_comments.withColumn("sentiment", sentiment_udf(df_comments["comment_text"]))
+df_youtube_comments = df_youtube_comments.withColumn("emotion", emotion_udf(df_comments["comment_text"]))
+
+
 
 # Expand dataframe and select relevant columns 
 df_youtube_comments = df_youtube_comments.select(

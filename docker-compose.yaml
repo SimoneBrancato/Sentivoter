@@ -7,14 +7,14 @@ services:
     image: producer
     container_name: producer
     volumes:
-      - ./yt_data/flattened_comments_data:/comments_data
+      - ./yt_data/flattened_comments_data/:/comments_data/
       - ./yt_data/flattened_videos_data:/videos_data
     depends_on:
       logstash:
         condition: service_healthy
       elasticsearch:
         condition: service_started
-    command: sh -c "sleep 90s ; python3 -u script.py"    
+    command: sh -c "sleep 90s ; python3 -u script.py"   
 
   
   logstash:
@@ -30,7 +30,7 @@ services:
       - 9700:9700
     depends_on:
       - kafka
-      #- kafka-ui
+      - kafka-ui
       - elasticsearch
     healthcheck:
       test: ["CMD-SHELL", "curl --silent --fail http://localhost:9700 || exit 1"]
@@ -64,7 +64,7 @@ services:
     container_name: init-kafka
     depends_on:
       - kafka
-      #- kafka-ui
+      - kafka-ui
       - elasticsearch
     entrypoint: ['/bin/sh', '-c']
     command: |
@@ -98,6 +98,13 @@ services:
     volumes:
       - ./fb_spark/:/spark
       - spark_volume_1:/opt/spark/jars
+    deploy:
+        resources:
+          reservations:
+            devices:
+              - driver: nvidia
+                count: 1
+                capabilities: [gpu] 
     command: > 
       /opt/spark/bin/spark-submit 
         --driver-memory 2g 
@@ -107,37 +114,42 @@ services:
         --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.elasticsearch:elasticsearch-spark-30_2.12:8.13.4  
         /spark/script.py
     depends_on:
-      fb_producer:
+      producer:
         condition: service_completed_successfully
       init-kafka:
         condition: service_completed_successfully
       elasticsearch:
         condition: service_started
 
-  yt_spark_1:
-    build:
-      context: yt_spark_1/
-      dockerfile: ./Dockerfile
-    container_name: yt_spark_1
-    volumes:
-      - ./yt_spark_1/:/spark
-      - spark_volume_2:/opt/spark/jars
-    command: > 
-      /opt/spark/bin/spark-submit 
-        --driver-memory 2g 
-        --executor-memory 2g
-        --conf spark.driver.extraJavaOptions="-Divy.cache.dir=/tmp -Divy.home=/tmp -XX:+UseG1GC"
-        --conf spark.executor.extraJavaOptions="-XX:+UseG1GC"
-        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.elasticsearch:elasticsearch-spark-30_2.12:8.13.4  
-        /spark/script.py
-    restart: on-failure
-    depends_on:
-      fb_spark:
-        condition: service_completed_successfully
-      init-kafka:
-        condition: service_completed_successfully
-      elasticsearch:
-        condition: service_started
+    yt_spark_1:
+      build:
+        context: yt_spark_1/
+        dockerfile: ./Dockerfile
+      container_name: yt_spark_1
+      volumes:
+        - ./yt_spark_1/:/spark
+        - spark_volume_2:/opt/spark/jars
+      deploy:
+        resources:
+          reservations:
+            devices:
+              - driver: nvidia
+                count: 1
+                capabilities: [gpu] 
+      command: > 
+        /opt/spark/bin/spark-submit 
+          --driver-memory 2g 
+          --executor-memory 2g
+          --conf spark.driver.extraJavaOptions="-Divy.cache.dir=/tmp -Divy.home=/tmp -XX:+UseG1GC"
+          --conf spark.executor.extraJavaOptions="-XX:+UseG1GC"
+          --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.elasticsearch:elasticsearch-spark-30_2.12:8.13.4  
+          /spark/script.py
+      restart: on-failure
+      depends_on:
+        init-kafka:
+          condition: service_completed_successfully
+        elasticsearch:
+          condition: service_started
 
   yt_spark_2:
     build:
@@ -147,14 +159,21 @@ services:
     volumes:
       - ./yt_spark_2/:/spark
       - spark_volume_3:/opt/spark/jars
-    command: > 
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu] 
+    command: >
       /opt/spark/bin/spark-submit 
-        --driver-memory 2g 
-        --executor-memory 2g
-        --conf spark.driver.extraJavaOptions="-Divy.cache.dir=/tmp -Divy.home=/tmp -XX:+UseG1GC"
-        --conf spark.executor.extraJavaOptions="-XX:+UseG1GC"
-        --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.elasticsearch:elasticsearch-spark-30_2.12:8.13.4  
-        /spark/script.py
+      --driver-memory 3g 
+      --executor-memory 3g 
+      --conf spark.driver.extraJavaOptions="-Divy.cache.dir=/tmp -Divy.home=/tmp -XX:+UseG1GC"
+      --conf spark.executor.extraJavaOptions="-XX:+UseG1GC"
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.elasticsearch:elasticsearch-spark-30_2.12:8.13.4
+      /spark/script.py
     restart: on-failure
     depends_on:
       init-kafka:

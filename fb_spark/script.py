@@ -5,6 +5,20 @@ from pyspark.sql.functions import col, from_json, udf
 import tweetnlp
 from transformers import logging
 import warnings
+import torch
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Using device: {device}")
+print(f"CUDA available: {torch.cuda.is_available()}")
+print(f"CUDA device count: {torch.cuda.device_count()}")
+print(f"Current device: {torch.cuda.current_device()}")
+print(f"Device name: {torch.cuda.get_device_name(0)}")
+
+sentiment_model = tweetnlp.load_model('sentiment')
+print(f"Model device: {sentiment_model.model.device}")
+
+emotion_model = tweetnlp.load_model('emotion')
+print(f"Model device: {emotion_model.model.device}")
 
 # To reduce verbose output
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -14,10 +28,6 @@ logging.set_verbosity_error()
 kafkaServer = "kafka:9092"
 fb_posts_topic = "fb_sentivoter_posts"
 fb_comments_topic = "fb_sentivoter_comments"
-
-# Load sentiment and emotion models from TweetNLP
-sentiment_model = tweetnlp.load_model('sentiment')
-emotion_model = tweetnlp.load_model('emotion')
 
 # To split the text by chunk_size
 def split_text(text, chunk_size=500):
@@ -30,8 +40,6 @@ def split_text(text, chunk_size=500):
         chunks.append(chunk)
         start += chunk_size
     return chunks
-
-count = 0
 
 # Analyze text sentiment by chunks and calculate total sentiment analysis
 def get_sentiment(text):
@@ -58,9 +66,6 @@ def get_sentiment(text):
         for sentiment, prob in aggregated_probabilities.items():
             average_probabilities[sentiment] = float(prob / num_chunks) 
         
-        global count
-        print(count)
-        count+=1
         average_probabilities["sentiment_label"] = str(max(average_probabilities, key=average_probabilities.get))
 
     except Exception:
