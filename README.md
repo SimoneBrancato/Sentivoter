@@ -1,10 +1,12 @@
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/84e72f49-2c17-4ac8-a193-92f0e0f17312" alt="ChatGPT Image" width="400"/>
+</div>
+
 ## What is Sentivoter?
 Sentivoter is a cross-media data collection and sentiment analysis pipeline designed to monitor public opinion on the 2024 U.S. presidential election.
 The project aims to provide in-dept analysis of sentiment and emotions expressed by users on Facebook and YouTube, focusing on content related to Kamala Harris and Donald Trump.
 
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/84e72f49-2c17-4ac8-a193-92f0e0f17312" alt="ChatGPT Image" width="400"/>
-</div>
+
 
 ## Prerequisites
 - **Docker/Docker Compose:** Ensure you have a fully functional [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/) installation on your local computer.
