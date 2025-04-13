@@ -100,7 +100,7 @@ The data pipeline is structured as follows:
 - **Kibana:** provides interactive visualizations and dashboards for exploring sentiment trends, emotional tones, and engagement across platforms and candidates.
 
   
-![image](https://github.com/user-attachments/assets/ec4a72ee-15cb-4626-bc5a-a87e62f32988)
+![image](https://github.com/user-attachments/assets/c8b44efa-eb33-4029-99ee-31c2a2d26de6)
 
 
 
