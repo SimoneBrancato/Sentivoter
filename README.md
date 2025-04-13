@@ -3,8 +3,9 @@
 </div>
 
 ## What is Sentivoter?
-Sentivoter is a cross-media data collection and sentiment analysis pipeline designed to monitor public opinion on the 2024 U.S. presidential election.
-The project aims to provide in-dept analysis of sentiment and emotions expressed by users on Facebook and YouTube, focusing on content related to Kamala Harris and Donald Trump.
+Sentivoter is an advanced cross-media data collection and sentiment analysis pipeline developed to track and analyze public opinion during the 2024 U.S. presidential election.
+By leveraging data from Facebook and YouTube, the project seeks to provide a comprehensive understanding of the sentiments and emotions expressed by users, particularly regarding political figures like Kamala Harris and Donald Trump. 
+The pipeline combines powerful tools such as Selenium for web scraping, Apache Spark for large-scale data processing, and Elasticsearch for efficient indexing, offering a rich analysis of the public's reactions to the unfolding election campaign.
 
 
 
