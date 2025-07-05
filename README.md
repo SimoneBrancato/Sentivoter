@@ -1,13 +1,14 @@
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/84e72f49-2c17-4ac8-a193-92f0e0f17312" alt="ChatGPT Image" width="400"/>
-</div>
+## Related Repository (!!!)
+This project relies on [Elections-Crawler](https://github.com/SimoneBrancato/Elections-Crawler) as a core component of the framework, responsible for collecting data from Facebook.
 
 ## What is Sentivoter?
 Sentivoter is an advanced cross-media data collection and sentiment analysis pipeline developed to track and analyze public opinion during the 2024 U.S. presidential election.
 By leveraging data from Facebook and YouTube, the project seeks to provide a comprehensive understanding of the sentiments and emotions expressed by users, particularly regarding political figures like Kamala Harris and Donald Trump. 
 The pipeline combines powerful tools such as Selenium for web scraping, Apache Spark for large-scale data processing, and Elasticsearch for efficient indexing, offering a rich analysis of the public's reactions to the unfolding election campaign.
 
-
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/84e72f49-2c17-4ac8-a193-92f0e0f17312" alt="ChatGPT Image" width="400"/>
+</div>
 
 ## Prerequisites
 - **Docker/Docker Compose:** Ensure you have a fully functional [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/) installation on your local computer.
